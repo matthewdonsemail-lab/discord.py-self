@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>discord.py-self API Explorer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --accent: #22c55e;
+      --muted: #94a3b8;
+    }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 24px;
+      background: linear-gradient(135deg, #111827, #0b1629);
+      border-bottom: 1px solid #1f2937;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+    }
+    p.description {
+      margin: 0;
+      color: var(--muted);
+    }
+    main {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+    h2 {
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+    }
+    .stat { color: var(--accent); }
+    .endpoint {
+      margin-bottom: 12px;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 12px;
+      background: #0f172a;
+    }
+    .endpoint h3 { margin: 0 0 6px; }
+    .tag { color: var(--accent); font-weight: 600; }
+    .method { padding: 2px 8px; border-radius: 6px; margin-right: 8px; font-weight: 700; }
+    .GET { background: rgba(34,197,94,0.2); color: #bbf7d0; }
+    ul { margin: 6px 0 0 16px; color: var(--muted); }
+    a { color: #93c5fd; }
+    code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 6px; }
+    .operation { margin-bottom: 12px; }
+    .operation .name { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>discord.py-self API Explorer</h1>
+    <p class="description">Interactive view of the documented HTTP endpoints and operations.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Service metadata</h2>
+      <div id="meta">Loading metadata...</div>
+    </section>
+    <section>
+      <h2>Operation categories</h2>
+      <div id="categories">Loading categories...</div>
+    </section>
+    <section style="grid-column: span 2;">
+      <h2>Documented endpoints</h2>
+      <div id="endpoints">Loading endpoints...</div>
+    </section>
+    <section style="grid-column: span 2;">
+      <h2>Operation catalogue</h2>
+      <div id="operations">Loading operations...</div>
+    </section>
+  </main>
+  <script>
+    const metaEl = document.getElementById('meta');
+    const catEl = document.getElementById('categories');
+    const endpointsEl = document.getElementById('endpoints');
+    const operationsEl = document.getElementById('operations');
+
+    function createList(items) {
+      const ul = document.createElement('ul');
+      items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        ul.appendChild(li);
+      });
+      return ul;
+    }
+
+    async function loadMetadata() {
+      const res = await fetch('/metadata');
+      const meta = await res.json();
+      metaEl.innerHTML = `
+        <p><strong>Name:</strong> ${meta.name}</p>
+        <p><strong>Description:</strong> ${meta.description}</p>
+        <p><strong>Operations:</strong> <span class="stat">${meta.operation_count}</span></p>
+        <p><strong>Documentation:</strong> ${meta.documentation.source_docs.join(', ')}</p>
+      `;
+    }
+
+    async function loadCategories() {
+      const res = await fetch('/categories');
+      const categories = await res.json();
+      catEl.innerHTML = '';
+      categories.forEach(cat => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'endpoint';
+        wrapper.innerHTML = `<div class="name">${cat.name}</div><div class="stat">${cat.operation_count} operations</div>`;
+        wrapper.appendChild(createList(cat.operations));
+        catEl.appendChild(wrapper);
+      });
+    }
+
+    async function loadEndpoints() {
+      const spec = await fetch('/openapi.json').then(r => r.json());
+      endpointsEl.innerHTML = '';
+      Object.entries(spec.paths).forEach(([path, methods]) => {
+        Object.entries(methods).forEach(([verb, info]) => {
+          const div = document.createElement('div');
+          div.className = 'endpoint';
+          div.innerHTML = `
+            <div><span class="method ${verb.toUpperCase()}">${verb.toUpperCase()}</span><code>${path}</code></div>
+            <div class="tag">${(info.tags || []).join(', ')}</div>
+            <p>${info.summary || info.description || ''}</p>
+          `;
+          endpointsEl.appendChild(div);
+        });
+      });
+    }
+
+    async function loadOperations() {
+      const res = await fetch('/operations');
+      const ops = await res.json();
+      operationsEl.innerHTML = '';
+      ops.forEach(op => {
+        const div = document.createElement('div');
+        div.className = 'endpoint operation';
+        div.innerHTML = `
+          <div class="name">${op.name} <span class="tag">${op.category}</span></div>
+          <p>${op.summary}</p>
+          <p class="description">${op.description}</p>
+          <p><strong>Parameters</strong></p>
+        `;
+        const paramList = document.createElement('ul');
+        op.parameters.forEach(p => {
+          const li = document.createElement('li');
+          li.innerHTML = `<code>${p.name}</code> (${p.type}) ${p.required ? '<strong>required</strong>' : 'optional'} — ${p.description}`;
+          paramList.appendChild(li);
+        });
+        div.appendChild(paramList);
+        if (op.sources?.length) {
+          const ref = document.createElement('p');
+          ref.className = 'description';
+          ref.textContent = `Sources: ${op.sources.join(', ')}`;
+          div.appendChild(ref);
+        }
+        operationsEl.appendChild(div);
+      });
+    }
+
+    async function bootstrap() {
+      await Promise.all([loadMetadata(), loadCategories(), loadEndpoints(), loadOperations()]);
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

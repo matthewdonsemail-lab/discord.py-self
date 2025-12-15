@@ -1,0 +1,12 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "startCommand": "python server.py",
+    "restartPolicyType": "ON_FAILURE",
+    "healthcheckPath": "/metadata",
+    "healthcheckTimeout": 100
+  }
+}
